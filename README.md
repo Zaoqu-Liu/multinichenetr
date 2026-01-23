@@ -1,12 +1,15 @@
 # MultiNicheNet <img src="vignettes/overview_figure.png" align="right" width="200"/>
 
 <!-- badges: start -->
+[![Documentation](https://img.shields.io/badge/docs-pkgdown-blue.svg)](https://zaoqu-liu.github.io/multinichenetr/)
 [![R-Universe](https://zaoqu-liu.r-universe.dev/badges/multinichenetr)](https://zaoqu-liu.r-universe.dev/multinichenetr)
 [![R-CMD-check](https://github.com/Zaoqu-Liu/multinichenetr/workflows/R-CMD-check-bioc/badge.svg)](https://github.com/Zaoqu-Liu/multinichenetr/actions)
 [![GitHub issues](https://img.shields.io/github/issues/Zaoqu-Liu/multinichenetr)](https://github.com/Zaoqu-Liu/multinichenetr/issues)
 [![GitHub stars](https://img.shields.io/github/stars/Zaoqu-Liu/multinichenetr)](https://github.com/Zaoqu-Liu/multinichenetr/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
+
+> 📚 **[Full Documentation & Tutorials](https://zaoqu-liu.github.io/multinichenetr/)** | 🚀 **[Quick Start](https://zaoqu-liu.github.io/multinichenetr/articles/quick-start.html)** | 📊 **[Visualization Gallery](https://zaoqu-liu.github.io/multinichenetr/articles/visualization-gallery.html)**
 
 ## Overview
 

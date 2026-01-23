@@ -1,0 +1,186 @@
+url: https://zaoqu-liu.github.io/multinichenetr/
+
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+  bslib:
+    primary: "#0d6efd"
+    border-radius: 0.5rem
+    btn-border-radius: 0.25rem
+
+home:
+  title: MultiNicheNet - Differential Cell-Cell Communication Analysis
+  description: >
+    A comprehensive R package for differential cell-cell communication analysis 
+    from multi-sample multi-condition single-cell transcriptomics data.
+
+authors:
+  Zaoqu Liu:
+    href: https://github.com/Zaoqu-Liu
+
+navbar:
+  structure:
+    left: [intro, articles, reference, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get Started
+      href: articles/quick-start.html
+    articles:
+      text: Tutorials
+      menu:
+        - text: "-------"
+        - text: "Getting Started"
+        - text: Quick Start Guide
+          href: articles/quick-start.html
+        - text: Algorithm & Methodology
+          href: articles/algorithm-methodology.html
+        - text: "-------"
+        - text: "Core Tutorials"
+        - text: Comprehensive Analysis Tutorial
+          href: articles/basic_analysis_steps_MISC.html
+        - text: Pairwise Comparison
+          href: articles/pairwise_analysis_MISC.html
+        - text: Paired Analysis (Repeated Subjects)
+          href: articles/paired_analysis_SCC.html
+        - text: Batch Correction
+          href: articles/batch_correction_analysis_LungAtlas.html
+        - text: Multifactorial Design
+          href: articles/multifactorial_analysis_BreastCancer.html
+        - text: "-------"
+        - text: "Advanced Topics"
+        - text: Proteomics Integration
+          href: articles/add_proteomics_MISC.html
+        - text: Condition-Specific Cell Types
+          href: articles/condition_specific_celltype_MISC.html
+        - text: Visualization Gallery
+          href: articles/visualization-gallery.html
+        - text: "-------"
+        - text: "HPC & Large Data"
+        - text: Sample-Agnostic Analysis
+          href: articles/basic_analysis_steps_MISC_SACL.html
+    reference:
+      text: Reference
+      href: reference/index.html
+    news:
+      text: News
+      href: news/index.html
+    github:
+      icon: fab fa-github
+      href: https://github.com/Zaoqu-Liu/multinichenetr
+      aria-label: GitHub
+
+reference:
+  - title: Main Pipeline
+    desc: Core analysis functions
+    contents:
+      - multi_nichenet_analysis
+      - multi_nichenet_analysis_sampleAgnostic
+      - make_lite_output
+      - make_lite_output_condition_specific
+  
+  - title: Expression Processing
+    desc: Functions for processing expression data
+    contents:
+      - get_frac_exprs
+      - get_frac_exprs_sampleAgnostic
+      - get_muscat_exprs_avg
+      - get_muscat_exprs_frac
+      - get_avg_pb_exprs
+      - get_pseudobulk_logCPM_exprs
+      - get_abundance_info
+      - process_abundance_expression_info
+  
+  - title: Differential Expression
+    desc: DE analysis functions
+    contents:
+      - get_DE_info
+      - get_DE_info_sampleAgnostic
+      - perform_muscat_de_analysis
+      - p.adjust_empirical
+      - get_empirical_pvals
+      - get_FDR_empirical
+      - add_empirical_pval_fdr
+  
+  - title: Ligand Activity
+    desc: NicheNet ligand activity inference
+    contents:
+      - get_ligand_activities_targets_DEgenes
+      - get_ligand_activities_targets_DEgenes_beta
+      - infer_intercellular_regulatory_network
+      - lr_target_prior_cor_inference
+  
+  - title: Prioritization
+    desc: Multi-criteria prioritization functions
+    contents:
+      - generate_prioritization_tables
+      - generate_prioritization_tables_sampleAgnostic_multifactorial
+      - generate_prioritization_tables_condition_specific_celltypes_receiver
+      - generate_prioritization_tables_condition_specific_celltypes_sender
+      - prioritize_condition_specific_receiver
+      - prioritize_condition_specific_sender
+      - add_extra_criterion
+      - get_top_n_lr_pairs
+  
+  - title: Visualization
+    desc: Plotting functions
+    contents:
+      - starts_with("make_")
+      - visualize_network
+      - get_FDR_empirical_plots
+      - get_FDR_empirical_plots_all
+  
+  - title: Data Processing Utilities
+    desc: Helper functions for data manipulation
+    contents:
+      - alias_to_symbol_SCE
+      - makenames_SCE
+      - process_abund_info
+      - process_info_to_ic
+      - process_geneset_data
+      - combine_sender_receiver_de
+      - combine_sender_receiver_info_ic
+      - fix_frq_df
+      - compare_normal_emp_pvals
+  
+  - title: Example Data
+    desc: Built-in datasets
+    contents:
+      - sce
+      - ligand_target_matrix_test
+      - geneinfo_alias_human
+      - geneinfo_alias_mouse
+
+articles:
+  - title: Getting Started
+    navbar: ~
+    contents:
+      - quick-start
+      - algorithm-methodology
+  
+  - title: Core Tutorials
+    contents:
+      - basic_analysis_steps_MISC
+      - pairwise_analysis_MISC
+      - paired_analysis_SCC
+      - batch_correction_analysis_LungAtlas
+      - multifactorial_analysis_BreastCancer
+  
+  - title: Advanced Topics
+    contents:
+      - add_proteomics_MISC
+      - condition_specific_celltype_MISC
+      - visualization-gallery
+      - basic_analysis_steps_MISC_SACL
+      - multifactorial_analysis_BreastCancer_SACL
+  
+  - title: Additional
+    contents:
+      - DE_MultiNicheNet
+      - multinichenet_interpretation
+      - multinichenet_qsub
+
+footer:
+  structure:
+    left: developed_by
+    right: built_with

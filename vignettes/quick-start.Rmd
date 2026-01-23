@@ -1,0 +1,207 @@
+---
+title: "Quick Start Guide"
+author: "Zaoqu Liu"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+vignette: >
+  %\VignetteIndexEntry{Quick Start Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+**MultiNicheNet** is a comprehensive computational framework developed for differential cell-cell communication (CCC) analysis in single-cell RNA sequencing (scRNA-seq) data. This package enables systematic investigation of intercellular signaling differences across biological conditions, disease states, or treatment groups.
+This vignette provides a quick start guide to get you up and running with MultiNicheNet in minutes.
+
+### Key Features
+
+- **Multi-sample design support**: Proper statistical inference at the sample level
+- **Multi-condition analysis**: Flexible contrasts for complex experimental designs
+- **Integrated prioritization**: Combines expression, specificity, and ligand activity metrics
+- **Extensible framework**: Supports integration of complementary data modalities
+
+## Installation
+
+### From R-Universe (Recommended)
+
+```{r install-runiverse, eval=FALSE}
+install.packages("multinichenetr", repos = "https://zaoqu-liu.r-universe.dev")
+```
+
+### From GitHub
+
+```{r install-github, eval=FALSE}
+# Install dependencies
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("SingleCellExperiment", "muscat", "scuttle", "scran"))
+
+# Install nichenetr
+devtools::install_github("saeyslab/nichenetr")
+
+# Install multinichenetr
+devtools::install_github("Zaoqu-Liu/multinichenetr")
+```
+
+## Quick Start Example
+
+### Load Required Packages
+
+```{r load-packages, eval=FALSE}
+library(multinichenetr)
+library(SingleCellExperiment)
+library(dplyr)
+library(tibble)
+```
+### Load Example Data
+
+MultiNicheNet provides built-in example data for testing:
+
+```{r load-data, eval=FALSE}
+# Load example SingleCellExperiment object
+data(sce)
+
+# Load test ligand-target matrix
+data(ligand_target_matrix_test)
+
+# Check dimensions
+dim(sce)
+table(colData(sce)$celltype)
+```
+
+### Define Analysis Parameters
+
+```{r define-params, eval=FALSE}
+# Define metadata column names
+sample_id <- "tumor"
+group_id <- "pEMT"
+celltype_id <- "celltype"
+
+# Define contrasts of interest
+contrasts_oi <- c("'High-Low'")  # Compare High vs Low pEMT
+contrast_tbl <- tibble(
+  contrast = "High-Low",
+  group = "High"
+)
+```
+
+### Load Prior Knowledge Networks
+
+```{r load-networks, eval=FALSE}
+# Load ligand-receptor network
+lr_network <- readRDS(url(
+  "https://zenodo.org/record/5884439/files/lr_network_human_21122021.rds"
+))
+
+# Process network
+lr_network <- lr_network %>%
+  dplyr::rename(ligand = from, receptor = to) %>%
+  distinct(ligand, receptor)
+
+# Load ligand-target matrix (use full matrix for real analysis)
+ligand_target_matrix <- readRDS(url(
+  "https://zenodo.org/record/5884439/files/ligand_target_matrix_nsga2r_final.rds"
+))
+```
+
+### Run MultiNicheNet Analysis
+
+```{r run-analysis, eval=FALSE}
+# Run the complete analysis pipeline
+output <- multi_nichenet_analysis(
+  sce = sce,
+  celltype_id = celltype_id,
+  sample_id = sample_id,
+  group_id = group_id,
+  batches = NA,
+  covariates = NA,
+  lr_network = lr_network,
+  ligand_target_matrix = ligand_target_matrix,
+  contrasts_oi = contrasts_oi,
+  contrast_tbl = contrast_tbl,
+  sender_receiver_separate = FALSE,
+  min_cells = 5
+)
+```
+
+### Explore Results
+
+```{r explore-results, eval=FALSE}
+# View prioritized interactions
+head(output$prioritization_tables$group_prioritization_tbl)
+
+# Get top interactions for a specific group
+top_interactions <- output$prioritization_tables$group_prioritization_tbl %>%
+  filter(group == "High") %>%
+  filter(fraction_expressing_ligand_receptor > 0) %>%
+  arrange(desc(prioritization_score)) %>%
+  head(20)
+
+print(top_interactions)
+```
+
+### Basic Visualization
+
+```{r basic-viz, eval=FALSE}
+# Select top interactions for visualization
+prioritized_tbl <- output$prioritization_tables$group_prioritization_tbl %>%
+  filter(fraction_expressing_ligand_receptor > 0) %>%
+  filter(group == "High") %>%
+  top_n(10, prioritization_score)
+
+# Create ligand-receptor product plot
+p <- make_sample_lr_prod_plots(
+  output$prioritization_tables,
+  prioritized_tbl
+)
+print(p)
+```
+
+## Output Structure
+
+The `multi_nichenet_analysis()` function returns a list containing:
+
+| Component | Description |
+|-----------|-------------|
+| `prioritization_tables` | Prioritized ligand-receptor interactions |
+| `abundance_expression_info` | Expression and abundance information |
+| `celltype_info` | Cell type-specific information |
+| `grouping_tbl` | Sample grouping information |
+| `ligand_activities_targets_DEgenes` | Ligand activity inference results |
+
+## Next Steps
+
+- **[Algorithm & Methodology](algorithm-methodology.html)**: Deep dive into the computational methods
+- **[Comprehensive Tutorial](basic_analysis_steps_MISC.html)**: Full analysis walkthrough
+- **[Visualization Gallery](visualization-gallery.html)**: All available plot types
+
+## Session Info
+
+```{r session-info, eval=FALSE}
+sessionInfo()
+```
+
+## Citation
+
+If you use MultiNicheNet in your research, please cite:
+
+> Browaeys, R. et al. MultiNicheNet: a flexible framework for differential cell-cell communication analysis from multi-sample multi-condition single-cell transcriptomics data. bioRxiv (2023). https://doi.org/10.1101/2023.06.13.544751
+
+---
+
+*Maintained by [Zaoqu Liu](https://github.com/Zaoqu-Liu)*

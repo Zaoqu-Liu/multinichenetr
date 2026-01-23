@@ -1,0 +1,465 @@
+---
+title: "Visualization Gallery"
+author: "Zaoqu Liu"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    fig_width: 10
+    fig_height: 8
+vignette: >
+  %\VignetteIndexEntry{Visualization Gallery}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 10,
+  fig.height = 8,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+MultiNicheNet provides a comprehensive suite of visualization functions for exploring and communicating cell-cell communication analysis results. This gallery showcases all major plot types with example code.
+
+## Overview of Visualization Functions
+
+| Function | Description | Use Case |
+|----------|-------------|----------|
+| `make_sample_lr_prod_plots` | L-R product across samples | Sample-level patterns |
+| `make_ligand_receptor_lfc_plot` | Log fold change visualization | DE comparison |
+| `make_circos_lr` | Circos plot of interactions | Network overview |
+| `make_mushroom_plot` | Mushroom-style bubble plot | Multi-criteria display |
+| `make_ligand_activity_plots` | Ligand activity heatmaps | Activity inference |
+| `make_target_gene_plots` | Target gene expression | Downstream effects |
+
+## Sample-Level Visualizations
+
+### Ligand-Receptor Product Plots
+
+The L-R product plot shows the combined expression of ligand-receptor pairs across samples:
+
+```{r lr-prod-demo, eval=FALSE}
+library(multinichenetr)
+library(dplyr)
+
+# Load example output (from your analysis)
+# output <- multi_nichenet_analysis(...)
+
+# Select top interactions
+prioritized_tbl <- output$prioritization_tables$group_prioritization_tbl %>%
+  filter(fraction_expressing_ligand_receptor > 0) %>%
+  filter(group == "High") %>%
+  top_n(15, prioritization_score)
+
+# Create L-R product plot
+p_lr_prod <- make_sample_lr_prod_plots(
+  output$prioritization_tables,
+  prioritized_tbl
+)
+print(p_lr_prod)
+```
+
+```{r lr-prod-example, echo=FALSE, fig.height=6, fig.width=10}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Simulate L-R product data
+set.seed(42)
+samples <- paste0("S", 1:12)
+groups <- rep(c("Control", "Treatment"), each = 6)
+lr_pairs <- c("TGFB1_TGFBR1", "IL6_IL6R", "CCL2_CCR2", "CXCL12_CXCR4", "WNT5A_FZD7")
+
+lr_data <- expand.grid(sample = samples, lr = lr_pairs) %>%
+  mutate(
+    group = rep(groups, length(lr_pairs)),
+    value = case_when(
+      group == "Treatment" ~ rnorm(n(), 0.7, 0.2),
+      TRUE ~ rnorm(n(), 0.3, 0.15)
+    ),
+    value = pmax(0, pmin(1, value))
+  )
+
+ggplot(lr_data, aes(x = sample, y = lr, fill = value)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  facet_grid(~group, scales = "free_x", space = "free") +
+  scale_fill_gradient2(low = "#f8f9fa", mid = "#ffc107", high = "#dc3545",
+                       midpoint = 0.5, name = "Scaled\nL-R Product") +
+  theme_minimal() +
+  labs(title = "Ligand-Receptor Expression Product",
+       subtitle = "Scaled pseudobulk expression across samples",
+       x = "Sample", y = "L-R Interaction") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5),
+        strip.text = element_text(face = "bold"))
+```
+
+### Differential Expression Visualization
+
+```{r lfc-plot-demo, eval=FALSE}
+# Log fold change plot for ligands and receptors
+p_lfc <- make_ligand_receptor_lfc_plot(
+  receiver_de = output$ligand_activities_targets_DEgenes$receiver_de,
+  prioritized_tbl = prioritized_tbl,
+  contrast_oi = "High-Low"
+)
+print(p_lfc)
+```
+
+```{r lfc-example, echo=FALSE, fig.height=5, fig.width=9}
+set.seed(123)
+
+genes <- c("TGFB1", "IL6", "CCL2", "CXCL12", "WNT5A", "TGFBR1", "IL6R", "CCR2", "CXCR4", "FZD7")
+gene_type <- rep(c("Ligand", "Receptor"), each = 5)
+
+lfc_data <- data.frame(
+  gene = genes,
+  type = gene_type,
+  logFC = c(2.1, 1.8, 1.5, 0.8, 0.5, 1.2, 0.9, 1.4, 0.6, 0.3),
+  pvalue = c(0.001, 0.005, 0.01, 0.05, 0.1, 0.02, 0.08, 0.015, 0.12, 0.2)
+) %>%
+  mutate(
+    significant = pvalue < 0.05,
+    gene = factor(gene, levels = rev(genes))
+  )
+
+ggplot(lfc_data, aes(x = logFC, y = gene, fill = type)) +
+  geom_col(alpha = 0.8, width = 0.7) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  geom_point(aes(shape = significant), size = 3) +
+  scale_fill_manual(values = c("Ligand" = "#0d6efd", "Receptor" = "#198754")) +
+  scale_shape_manual(values = c("TRUE" = 8, "FALSE" = 1), 
+                     labels = c("p < 0.05", "p ≥ 0.05")) +
+  theme_minimal() +
+  labs(title = "Differential Expression: Ligands & Receptors",
+       subtitle = "Treatment vs Control comparison",
+       x = "Log2 Fold Change", y = "",
+       fill = "Gene Type", shape = "Significance") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+## Network Visualizations
+
+### Circos Plots
+
+Circos plots provide a global view of cell-cell communication patterns:
+
+```{r circos-demo, eval=FALSE}
+# Create circos plot
+make_circos_lr(
+  prioritized_tbl = prioritized_tbl,
+  colors_sender = c("Macrophage" = "#E41A1C", "Fibroblast" = "#377EB8"),
+  colors_receiver = c("Tcell" = "#4DAF4A", "Bcell" = "#984EA3")
+)
+```
+
+```{r circos-example, echo=FALSE, fig.height=7, fig.width=7}
+library(ggplot2)
+library(igraph)
+library(ggraph)
+
+set.seed(42)
+
+# Create network data
+edges <- data.frame(
+  from = c("Macrophage", "Macrophage", "Fibroblast", "Fibroblast", 
+           "Dendritic", "Dendritic", "Endothelial"),
+  to = c("T cell", "B cell", "T cell", "NK cell", 
+         "T cell", "Macrophage", "Fibroblast"),
+  weight = c(15, 8, 12, 6, 10, 5, 7),
+  lr = c("TGFB1-TGFBR1", "IL6-IL6R", "CCL2-CCR2", "CXCL12-CXCR4",
+         "CD80-CD28", "CSF1-CSF1R", "VEGFA-VEGFR2")
+)
+
+g <- graph_from_data_frame(edges, directed = TRUE)
+
+ggraph(g, layout = "circle") +
+  geom_edge_arc(aes(width = weight, alpha = weight),
+                arrow = arrow(length = unit(3, "mm"), type = "closed"),
+                start_cap = circle(8, "mm"),
+                end_cap = circle(8, "mm"),
+                color = "#0d6efd") +
+  geom_node_point(size = 15, color = "#343a40") +
+  geom_node_text(aes(label = name), color = "white", fontface = "bold", size = 3) +
+  scale_edge_width(range = c(0.5, 3), name = "# Interactions") +
+  scale_edge_alpha(range = c(0.3, 0.8), guide = "none") +
+  theme_void() +
+  labs(title = "Cell-Cell Communication Network",
+       subtitle = "Edge width = number of prioritized interactions") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+### Chord Diagrams
+
+For a more detailed view with ligand-receptor annotations:
+
+```{r chord-example, echo=FALSE, fig.height=6, fig.width=9}
+# Simulate chord-like visualization using ggplot
+library(ggplot2)
+
+cell_types <- c("Macrophage", "Fibroblast", "T cell", "B cell", "NK cell", "Endothelial")
+
+# Create connection matrix
+set.seed(42)
+connections <- expand.grid(sender = cell_types[1:3], receiver = cell_types[4:6]) %>%
+  mutate(
+    n_interactions = sample(1:20, 9, replace = TRUE),
+    top_lr = sample(c("TGFB1-TGFBR1", "IL6-IL6R", "CCL2-CCR2", "CXCL12-CXCR4", "WNT5A-FZD7"),
+                   9, replace = TRUE)
+  )
+
+ggplot(connections, aes(x = sender, y = receiver)) +
+  geom_point(aes(size = n_interactions, color = n_interactions), alpha = 0.8) +
+  geom_text(aes(label = n_interactions), color = "white", fontface = "bold", size = 4) +
+  scale_size(range = c(8, 25), name = "# Interactions") +
+  scale_color_gradient(low = "#6c757d", high = "#dc3545", name = "# Interactions") +
+  theme_minimal() +
+  labs(title = "Sender-Receiver Interaction Matrix",
+       subtitle = "Number of prioritized L-R pairs per cell type combination",
+       x = "Sender Cell Type", y = "Receiver Cell Type") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+        axis.text.y = element_text(face = "bold"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+## Multi-Criteria Bubble Plots
+
+### Mushroom Plots
+
+The mushroom plot is a signature visualization of MultiNicheNet, displaying multiple criteria simultaneously:
+
+```{r mushroom-demo, eval=FALSE}
+# Create mushroom plot
+p_mushroom <- make_mushroom_plot(
+  prioritization_tables = output$prioritization_tables,
+  top_n = 20,
+  contrast_oi = "High-Low"
+)
+print(p_mushroom)
+```
+
+```{r mushroom-example, echo=FALSE, fig.height=8, fig.width=11}
+set.seed(42)
+
+# Simulate mushroom plot data with unique interactions
+ligands <- c("TGFB1", "IL6", "CCL2", "CXCL12", "WNT5A", "VEGFA", "TNF", "IL1B", "CXCL8", "FGF2",
+             "PDGFB", "EGF", "HGF", "IGF1", "BMP2")
+receptors <- c("TGFBR1", "IL6R", "CCR2", "CXCR4", "FZD7", "VEGFR2", "TNFR1", "IL1R1", "CXCR1", "FGFR1",
+               "PDGFRB", "EGFR", "MET", "IGF1R", "BMPR2")
+
+n_int <- 15
+mushroom_data <- data.frame(
+  interaction = paste0(ligands[1:n_int], "_", receptors[1:n_int]),
+  sender = sample(c("Macrophage", "Fibroblast", "Dendritic"), n_int, replace = TRUE),
+  receiver = sample(c("T cell", "B cell", "NK cell"), n_int, replace = TRUE),
+  ligand_lfc = rnorm(n_int, 1.5, 0.8),
+  receptor_lfc = rnorm(n_int, 1.0, 0.6),
+  ligand_activity = runif(n_int, 0.5, 0.9),
+  fraction_expressing = runif(n_int, 0.3, 0.9),
+  priority_score = runif(n_int, 0.4, 0.95)
+) %>%
+  arrange(desc(priority_score)) %>%
+  mutate(
+    interaction = factor(interaction, levels = rev(unique(interaction))),
+    sender_receiver = paste(sender, "→", receiver)
+  )
+
+# Create bubble plot
+ggplot(mushroom_data, aes(x = ligand_lfc, y = interaction)) +
+  geom_segment(aes(xend = receptor_lfc, yend = interaction), 
+               color = "#6c757d", linewidth = 0.5, alpha = 0.5) +
+  geom_point(aes(size = fraction_expressing, color = ligand_activity), alpha = 0.8) +
+  geom_point(aes(x = receptor_lfc, size = fraction_expressing, color = ligand_activity), 
+             shape = 17, alpha = 0.8) +
+  facet_wrap(~sender_receiver, scales = "free_y", ncol = 3) +
+  scale_color_gradient2(low = "#0d6efd", mid = "#ffc107", high = "#dc3545",
+                        midpoint = 0.7, name = "Ligand\nActivity") +
+  scale_size(range = c(2, 8), name = "Expression\nFraction") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
+  theme_minimal() +
+  labs(title = "MultiNicheNet Prioritized Interactions",
+       subtitle = "Circle = Ligand LFC, Triangle = Receptor LFC | Color = Activity | Size = Fraction",
+       x = "Log2 Fold Change", y = "") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 9),
+        strip.text = element_text(face = "bold"),
+        axis.text.y = element_text(size = 8))
+```
+
+## Ligand Activity Visualizations
+
+### Activity Heatmaps
+
+```{r activity-demo, eval=FALSE}
+# Ligand activity heatmap
+p_activity <- make_ligand_activity_plots(
+  ligand_activities_targets_DEgenes = output$ligand_activities_targets_DEgenes,
+  receiver_oi = "Tcell",
+  top_n_ligands = 20
+)
+print(p_activity)
+```
+
+```{r activity-example, echo=FALSE, fig.height=6, fig.width=9}
+set.seed(123)
+
+ligands <- paste0("L", 1:15)
+receivers <- c("T cell", "B cell", "NK cell", "Macrophage")
+
+activity_matrix <- expand.grid(ligand = ligands, receiver = receivers) %>%
+  mutate(
+    activity = runif(n(), 0.3, 0.95),
+    ligand = factor(ligand, levels = rev(ligands))
+  )
+
+ggplot(activity_matrix, aes(x = receiver, y = ligand, fill = activity)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.2f", activity)), size = 2.5, color = "black") +
+  scale_fill_gradient2(low = "#f8f9fa", mid = "#ffc107", high = "#dc3545",
+                       midpoint = 0.6, name = "Activity\nScore") +
+  theme_minimal() +
+  labs(title = "Ligand Activity Across Receiver Cell Types",
+       subtitle = "Based on target gene enrichment (AUROC)",
+       x = "Receiver Cell Type", y = "Ligand") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.text.x = element_text(face = "bold"))
+```
+
+## Target Gene Visualizations
+
+### Target Gene Expression
+
+```{r targets-demo, eval=FALSE}
+# Target gene expression plot
+p_targets <- make_target_gene_plots(
+  ligand_activities_targets_DEgenes = output$ligand_activities_targets_DEgenes,
+  ligand_oi = "TGFB1",
+  receiver_oi = "Tcell"
+)
+print(p_targets)
+```
+
+```{r targets-example, echo=FALSE, fig.height=5, fig.width=9}
+set.seed(42)
+
+targets <- paste0("Target_", 1:20)
+target_data <- data.frame(
+  gene = targets,
+  lfc = rnorm(20, 1.2, 0.8),
+  pvalue = 10^-runif(20, 1, 5),
+  regulation_potential = runif(20, 0.3, 0.95)
+) %>%
+  mutate(
+    significant = pvalue < 0.05,
+    gene = factor(gene, levels = gene[order(lfc)])
+  )
+
+ggplot(target_data, aes(x = lfc, y = gene)) +
+  geom_segment(aes(xend = 0, yend = gene), color = "#6c757d", alpha = 0.5) +
+  geom_point(aes(size = regulation_potential, color = -log10(pvalue)), alpha = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_color_gradient(low = "#0d6efd", high = "#dc3545", name = "-log10(p)") +
+  scale_size(range = c(2, 8), name = "Regulation\nPotential") +
+  theme_minimal() +
+  labs(title = "TGFB1 Target Genes in T cells",
+       subtitle = "Predicted targets from NicheNet ligand-target model",
+       x = "Log2 Fold Change", y = "") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+## Summary Statistics
+
+### Overview Barplots
+
+```{r summary-example, echo=FALSE, fig.height=5, fig.width=9}
+summary_data <- data.frame(
+  category = c("Total L-R pairs", "Significant DE", "High activity", 
+               "Prioritized (top 100)", "Cell type specific"),
+  count = c(2500, 850, 420, 100, 75),
+  stage = c("Input", "Filtering", "Filtering", "Output", "Output")
+)
+
+ggplot(summary_data, aes(x = reorder(category, -count), y = count, fill = stage)) +
+  geom_col(alpha = 0.8, width = 0.7) +
+  geom_text(aes(label = count), vjust = -0.5, fontface = "bold") +
+  scale_fill_manual(values = c("Input" = "#6c757d", "Filtering" = "#ffc107", "Output" = "#0d6efd")) +
+  theme_minimal() +
+  labs(title = "Analysis Summary Statistics",
+       subtitle = "Filtering progression through MultiNicheNet pipeline",
+       x = "", y = "Count", fill = "Stage") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Customization Tips
+
+### Color Palettes
+
+```{r color-palettes, echo=FALSE, fig.height=3, fig.width=10}
+palettes <- data.frame(
+  palette = rep(c("Default", "Viridis", "RdBu", "Custom"), each = 5),
+  value = rep(1:5, 4),
+  color = c(
+    RColorBrewer::brewer.pal(5, "Blues"),
+    viridis::viridis(5),
+    RColorBrewer::brewer.pal(5, "RdBu"),
+    c("#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51")
+  )
+)
+
+ggplot(palettes, aes(x = value, y = palette, fill = color)) +
+  geom_tile(color = "white", linewidth = 1) +
+  scale_fill_identity() +
+  theme_minimal() +
+  labs(title = "Recommended Color Palettes", x = "", y = "") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(face = "bold"))
+```
+
+### Export High-Quality Figures
+
+```{r export-tips, eval=FALSE}
+# Save publication-quality figures
+ggsave(
+  "figure_1.pdf",
+  plot = p_mushroom,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+# For presentations
+ggsave(
+  "figure_1.png",
+  plot = p_mushroom,
+  width = 12,
+  height = 8,
+  dpi = 150,
+  bg = "white"
+)
+```
+
+## Session Information
+
+```{r session-info, eval=FALSE}
+sessionInfo()
+```
+
+---
+*Maintained by [Zaoqu Liu](https://github.com/Zaoqu-Liu)*

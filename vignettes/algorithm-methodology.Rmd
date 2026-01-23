@@ -1,0 +1,397 @@
+---
+title: "Algorithm & Methodology"
+author: "Zaoqu Liu"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    fig_width: 10
+    fig_height: 8
+vignette: >
+  %\VignetteIndexEntry{Algorithm & Methodology}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 10,
+  fig.height = 8,
+  warning = FALSE,
+  message = FALSE,
+  echo = FALSE
+)
+library(ggplot2)
+library(dplyr)
+```
+
+## Overview
+
+MultiNicheNet is a computational framework designed for differential cell-cell communication (CCC) analysis in multi-sample, multi-condition single-cell RNA sequencing experiments. This document provides a comprehensive overview of the algorithmic foundations and methodological principles underlying MultiNicheNet.
+
+## Theoretical Framework
+
+### The Cell-Cell Communication Inference Problem
+
+Cell-cell communication (CCC) involves the transmission of biological signals between cells through ligand-receptor (L-R) interactions. In single-cell transcriptomics, we infer potential CCC events by:
+
+1. Identifying expressed ligands in "sender" cell types
+2. Identifying expressed receptors in "receiver" cell types
+3. Predicting downstream signaling effects
+
+```{r workflow-diagram, fig.height=6, fig.width=10}
+# Create workflow diagram
+library(ggplot2)
+
+workflow_data <- data.frame(
+  step = c("Input\nscRNA-seq", "Pseudobulk\nAggregation", "Differential\nExpression", 
+           "Ligand\nActivity", "Multi-Criteria\nPrioritization", "Output\nCCC Events"),
+  x = 1:6,
+  y = rep(1, 6)
+)
+
+ggplot(workflow_data, aes(x = x, y = y)) +
+  geom_point(size = 20, color = "#0d6efd", alpha = 0.8) +
+  geom_text(aes(label = step), size = 3, fontface = "bold", color = "white") +
+  geom_segment(aes(x = x + 0.3, xend = x + 0.7, y = y, yend = y),
+               data = workflow_data[1:5,],
+               arrow = arrow(length = unit(0.3, "cm")),
+               color = "#6c757d", linewidth = 1.5) +
+  theme_void() +
+  labs(title = "MultiNicheNet Analysis Workflow") +
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"))
+```
+
+### Why Multi-Sample Analysis?
+
+Traditional cell-level differential expression analysis suffers from several limitations:
+
+```{r comparison-table}
+comparison_df <- data.frame(
+  Aspect = c("Statistical Unit", "Sample Variability", "False Positive Rate", 
+             "Complex Designs", "Batch Effects"),
+  `Cell-Level` = c("Individual cells", "Ignored", "Inflated", "Limited", "Problematic"),
+  `Sample-Level (MultiNicheNet)` = c("Samples/patients", "Properly modeled", "Controlled", 
+                                      "Fully supported", "Can be corrected"),
+  check.names = FALSE
+)
+
+knitr::kable(comparison_df, caption = "Comparison of Cell-Level vs Sample-Level Analysis")
+```
+
+## Core Algorithms
+
+### 1. Pseudobulk Aggregation
+
+For each cell type $c$ and sample $s$, we aggregate single-cell expression profiles:
+
+$$\bar{X}_{g,c,s} = \frac{1}{n_{c,s}} \sum_{i \in \text{cells}(c,s)} X_{g,i}$$
+
+where:
+- $X_{g,i}$ is the expression of gene $g$ in cell $i$
+- $n_{c,s}$ is the number of cells of type $c$ in sample $s$
+
+**Benefits:**
+- Reduces technical noise through averaging
+- Enables proper statistical inference at sample level
+- Respects experimental design structure
+
+```{r pseudobulk-concept, fig.height=5, fig.width=9}
+set.seed(42)
+
+# Simulate cell-level data
+n_cells <- 100
+cell_data <- data.frame(
+  x = rnorm(n_cells, 0, 1),
+  y = rnorm(n_cells, 0, 1),
+  sample = rep(c("Sample 1", "Sample 2", "Sample 3", "Sample 4"), each = 25),
+  expression = c(rnorm(25, 5, 2), rnorm(25, 7, 2), rnorm(25, 4, 2), rnorm(25, 8, 2))
+)
+
+# Create pseudobulk
+pb_data <- cell_data %>%
+  group_by(sample) %>%
+  summarize(mean_expr = mean(expression), .groups = "drop")
+
+p1 <- ggplot(cell_data, aes(x = sample, y = expression, fill = sample)) +
+  geom_jitter(width = 0.2, alpha = 0.5, size = 2) +
+  geom_boxplot(alpha = 0.3, outlier.shape = NA) +
+  theme_minimal() +
+  labs(title = "Cell-Level Expression", y = "Expression", x = "") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+p2 <- ggplot(pb_data, aes(x = sample, y = mean_expr, fill = sample)) +
+  geom_col(alpha = 0.8, width = 0.6) +
+  geom_point(size = 4, color = "black") +
+  theme_minimal() +
+  labs(title = "Pseudobulk Expression", y = "Mean Expression", x = "") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+### 2. Differential Expression Analysis
+
+MultiNicheNet employs the **muscat** framework for differential state analysis. For each gene $g$ in cell type $c$:
+
+$$\log_2(\text{CPM}_{g,c,s} + 1) = \beta_0 + \beta_1 \cdot \text{condition}_s + \epsilon_{g,c,s}$$
+
+**Statistical Testing:**
+- Uses negative binomial generalized linear models (edgeR)
+- Accounts for library size differences
+- Supports complex designs with covariates
+
+**Empirical P-value Correction:**
+MultiNicheNet implements an empirical null distribution approach to control for multiple testing across many cell types:
+
+$$p_{\text{empirical}} = \frac{\#\{|t_{\text{null}}| \geq |t_{\text{observed}}|\}}{N_{\text{null}}}$$
+
+```{r pvalue-distribution, fig.height=4, fig.width=8}
+set.seed(123)
+
+# Simulate p-value distributions
+null_dist <- rbeta(10000, 1, 1)  # Uniform under null
+observed_dist <- c(rbeta(7000, 1, 1), rbeta(3000, 0.3, 2))  # Mix of null and signal
+
+df_pvals <- data.frame(
+  pvalue = c(null_dist, observed_dist),
+  type = rep(c("Expected (Null)", "Observed"), each = 10000)
+)
+
+ggplot(df_pvals, aes(x = pvalue, fill = type)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  facet_wrap(~type) +
+  theme_minimal() +
+  labs(title = "P-value Distribution: Null vs Observed",
+       x = "P-value", y = "Frequency") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face = "bold")) +
+  scale_fill_manual(values = c("#6c757d", "#0d6efd"))
+```
+
+### 3. NicheNet Ligand Activity Inference
+
+MultiNicheNet integrates the **NicheNet** ligand-target prior knowledge model to infer ligand activities based on downstream gene expression changes.
+
+**Ligand-Target Matrix:**
+The ligand-target matrix $\mathbf{W}$ contains regulatory potential scores:
+
+$$W_{l,t} = P(\text{gene } t \text{ regulated by ligand } l)$$
+
+**Activity Score Calculation:**
+For a set of differentially expressed target genes $G_{\text{DE}}$:
+
+$$\text{Activity}_l = \text{AUROC}(W_{l,\cdot}, G_{\text{DE}})$$
+
+This measures how well ligand $l$'s predicted targets are enriched in the observed DE genes.
+
+```{r ligand-activity-concept, fig.height=5, fig.width=9}
+set.seed(42)
+
+# Simulate ligand activity data
+ligands <- paste0("Ligand_", 1:10)
+activity_scores <- c(0.85, 0.78, 0.72, 0.68, 0.65, 0.55, 0.52, 0.48, 0.45, 0.42)
+n_targets <- c(150, 120, 100, 90, 85, 60, 55, 50, 45, 40)
+
+ligand_df <- data.frame(
+  ligand = factor(ligands, levels = rev(ligands)),
+  activity = activity_scores,
+  targets = n_targets
+)
+
+ggplot(ligand_df, aes(x = activity, y = ligand, fill = activity)) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "red", linewidth = 1) +
+  scale_fill_gradient2(low = "#6c757d", mid = "#ffc107", high = "#0d6efd", 
+                       midpoint = 0.6, name = "Activity\nScore") +
+  theme_minimal() +
+  labs(title = "Ligand Activity Ranking",
+       subtitle = "Based on target gene enrichment (AUROC)",
+       x = "Activity Score (AUROC)", y = "") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5)) +
+  annotate("text", x = 0.52, y = 1, label = "Random\n(0.5)", color = "red", size = 3)
+```
+
+### 4. Multi-Criteria Prioritization
+
+The key innovation of MultiNicheNet is integrating multiple biological criteria into a unified prioritization score.
+
+**Prioritization Components:**
+
+| Criterion | Symbol | Description |
+|-----------|--------|-------------|
+| Ligand DE | $S_{\text{DE}}^L$ | Differential expression of ligand |
+| Receptor DE | $S_{\text{DE}}^R$ | Differential expression of receptor |
+| Ligand specificity | $S_{\text{spec}}^L$ | Cell-type specificity of ligand |
+| Receptor specificity | $S_{\text{spec}}^R$ | Cell-type specificity of receptor |
+| Expression fraction | $S_{\text{frac}}$ | Fraction of samples expressing L-R |
+| Ligand activity | $S_{\text{act}}$ | NicheNet activity score |
+
+**Unified Score:**
+
+$$S_{\text{priority}} = \prod_{i} S_i^{w_i}$$
+
+where $w_i$ are scenario-specific weights.
+
+```{r prioritization-heatmap, fig.height=6, fig.width=10}
+set.seed(123)
+
+# Simulate prioritization scores
+n_interactions <- 15
+interactions <- paste0("L", 1:n_interactions, "_R", 1:n_interactions)
+
+criteria_matrix <- data.frame(
+  interaction = interactions,
+  `Ligand DE` = runif(n_interactions, 0.3, 1),
+  `Receptor DE` = runif(n_interactions, 0.3, 1),
+  `Ligand Specificity` = runif(n_interactions, 0.2, 1),
+  `Receptor Specificity` = runif(n_interactions, 0.2, 1),
+  `Expression Fraction` = runif(n_interactions, 0.4, 1),
+  `Ligand Activity` = runif(n_interactions, 0.3, 0.9),
+  check.names = FALSE
+)
+
+# Calculate priority score
+criteria_matrix$Priority <- apply(criteria_matrix[,-1], 1, function(x) prod(x^(1/6)))
+criteria_matrix <- criteria_matrix %>% arrange(desc(Priority))
+criteria_matrix$interaction <- factor(criteria_matrix$interaction, 
+                                       levels = rev(criteria_matrix$interaction))
+
+# Reshape for plotting
+library(tidyr)
+criteria_long <- criteria_matrix %>%
+  pivot_longer(-interaction, names_to = "criterion", values_to = "score") %>%
+  mutate(criterion = factor(criterion, levels = c("Ligand DE", "Receptor DE", 
+                                                    "Ligand Specificity", "Receptor Specificity",
+                                                    "Expression Fraction", "Ligand Activity", "Priority")))
+
+ggplot(criteria_long, aes(x = criterion, y = interaction, fill = score)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = round(score, 2)), size = 2.5, color = "black") +
+  scale_fill_gradient2(low = "#f8f9fa", mid = "#ffc107", high = "#0d6efd",
+                       midpoint = 0.5, name = "Score") +
+  theme_minimal() +
+  labs(title = "Multi-Criteria Prioritization Matrix",
+       x = "", y = "Ligand-Receptor Interaction") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+## Biological Scenarios
+
+MultiNicheNet supports different biological scenarios with pre-defined weight configurations:
+
+```{r scenarios, fig.height=4, fig.width=8}
+scenarios <- data.frame(
+  Scenario = c("Full (Default)", "DE-focused", "Specificity-focused", "Activity-focused"),
+  `Ligand DE` = c(1, 2, 0.5, 0.5),
+  `Receptor DE` = c(1, 2, 0.5, 0.5),
+  `Specificity` = c(1, 0.5, 2, 0.5),
+  `Activity` = c(1, 0.5, 0.5, 2),
+  check.names = FALSE
+)
+
+scenarios_long <- scenarios %>%
+  pivot_longer(-Scenario, names_to = "criterion", values_to = "weight")
+
+ggplot(scenarios_long, aes(x = criterion, y = Scenario, fill = weight)) +
+  geom_tile(color = "white", linewidth = 1) +
+  geom_text(aes(label = weight), size = 4, fontface = "bold") +
+  scale_fill_gradient(low = "#e9ecef", high = "#0d6efd", name = "Weight") +
+  theme_minimal() +
+  labs(title = "Prioritization Weight Scenarios",
+       x = "", y = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+## Mathematical Details
+
+### Expression Fraction Calculation
+
+For a ligand-receptor pair in sender cell type $s$ and receiver cell type $r$:
+
+$$F_{L,s} = \frac{\#\{\text{samples where } \bar{X}_{L,s} > \theta\}}{N_{\text{samples}}}$$
+
+where $\theta$ is the expression threshold.
+
+### Cell-Type Specificity Score
+
+Specificity is calculated using the Gini coefficient or entropy-based measures:
+
+$$\text{Specificity}_g = 1 - H(p_{g,1}, p_{g,2}, ..., p_{g,C}) / \log(C)$$
+
+where $p_{g,c}$ is the proportion of gene $g$ expression in cell type $c$.
+
+### Prioritization Score Aggregation
+
+The final prioritization score uses quantile normalization followed by geometric mean:
+
+$$S_{\text{final}} = \left(\prod_{i=1}^{K} Q_i^{w_i}\right)^{1/\sum w_i}$$
+
+where $Q_i$ is the quantile-normalized score for criterion $i$.
+
+## Comparison with Other Methods
+
+```{r method-comparison, fig.height=5, fig.width=9}
+methods <- data.frame(
+  Method = c("CellPhoneDB", "CellChat", "NicheNet", "LIANA", "MultiNicheNet"),
+  `Multi-Sample` = c(0, 0, 0, 1, 1),
+  `DE Integration` = c(0, 1, 0, 0, 1),
+  `Activity Inference` = c(0, 0, 1, 0, 1),
+  `Complex Design` = c(0, 0, 0, 0, 1),
+  `Prioritization` = c(0, 1, 1, 1, 1),
+  check.names = FALSE
+)
+
+methods_long <- methods %>%
+  pivot_longer(-Method, names_to = "Feature", values_to = "Support") %>%
+  mutate(Support = factor(Support, levels = c(0, 1), labels = c("No", "Yes")))
+
+ggplot(methods_long, aes(x = Feature, y = Method, fill = Support)) +
+  geom_tile(color = "white", linewidth = 1) +
+  scale_fill_manual(values = c("No" = "#dee2e6", "Yes" = "#0d6efd")) +
+  theme_minimal() +
+  labs(title = "Feature Comparison: CCC Analysis Methods",
+       x = "", y = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+## Performance Considerations
+
+### Computational Complexity
+
+| Operation | Complexity | Typical Time |
+|-----------|------------|--------------|
+| Pseudobulk aggregation | O(n cells × m genes) | Seconds |
+| DE analysis | O(k cell types × m genes) | Minutes |
+| Ligand activity | O(l ligands × t targets) | Minutes |
+| Prioritization | O(p pairs × c criteria) | Seconds |
+
+### Parallelization
+
+MultiNicheNet supports parallel processing for:
+- Ligand activity inference across receivers
+- Permutation-based empirical p-values
+- Multiple contrast calculations
+
+## References
+
+1. **MultiNicheNet**: Browaeys, R. et al. bioRxiv (2023). https://doi.org/10.1101/2023.06.13.544751
+
+2. **NicheNet**: Browaeys, R. et al. Nat Methods 17, 159–162 (2020). https://doi.org/10.1038/s41592-019-0667-5
+
+3. **muscat**: Crowell, H.L. et al. Nat Commun 11, 6077 (2020). https://doi.org/10.1038/s41467-020-19894-4
+
+4. **edgeR**: Robinson, M.D. et al. Bioinformatics 26, 139–140 (2010).
+
+---
+
+*Maintained by [Zaoqu Liu](https://github.com/Zaoqu-Liu)*
