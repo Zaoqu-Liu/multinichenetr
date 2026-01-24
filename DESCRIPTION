@@ -62,5 +62,6 @@ Suggests:
 VignetteBuilder: 
   knitr
 Remotes: 
-  github::saeyslab/nichenetr
+  github::Zaoqu-Liu/nichenetr
+Additional_repositories: https://zaoqu-liu.r-universe.dev
 RoxygenNote: 7.3.1
