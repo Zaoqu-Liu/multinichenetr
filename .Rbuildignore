@@ -8,3 +8,7 @@
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^vignettes/.*\.html$
+^vignettes/.*_files$
+^vignettes/.*\.knit\.md$
+^vignettes/.*_cache$
