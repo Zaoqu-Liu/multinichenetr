@@ -12,3 +12,15 @@
 ^vignettes/.*_files$
 ^vignettes/.*\.knit\.md$
 ^vignettes/.*_cache$
+^vignettes/add_proteomics_MISC\.Rmd$
+^vignettes/basic_analysis_steps_MISC\.Rmd$
+^vignettes/basic_analysis_steps_MISC_SACL\.Rmd$
+^vignettes/batch_correction_analysis_LungAtlas\.Rmd$
+^vignettes/condition_specific_celltype_MISC\.Rmd$
+^vignettes/multifactorial_analysis_BreastCancer\.Rmd$
+^vignettes/multifactorial_analysis_BreastCancer_SACL\.Rmd$
+^vignettes/paired_analysis_SCC\.Rmd$
+^vignettes/pairwise_analysis_MISC\.Rmd$
+^vignettes/DE_MultiNicheNet\.Rmd$
+^vignettes/multinichenet_interpretation\.Rmd$
+^vignettes/multinichenet_qsub\.Rmd$
