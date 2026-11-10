@@ -24,3 +24,4 @@
 ^vignettes/DE_MultiNicheNet\.Rmd$
 ^vignettes/multinichenet_interpretation\.Rmd$
 ^vignettes/multinichenet_qsub\.Rmd$
+(^|/)\.DS_Store$
